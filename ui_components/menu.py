@@ -1,5 +1,5 @@
 from PySide6.QtGui import QAction, QKeySequence
-from PySide6.QtCore import Slot
+from PySide6.QtCore import Slot, Signal
 from PySide6.QtWidgets import (QLabel, QHBoxLayout, QVBoxLayout, QMenuBar,
                                QLineEdit, QPushButton, QDialog, QComboBox)
 import testVideo
@@ -19,18 +19,28 @@ class TopBarMenu(QMenuBar):
         QMenuBar.__init__(self, parent)
 
         self.menu_file = self.addMenu("&File")
-        openAction = QAction("Open",
-                             self,
-                             triggered=self.open_experiment_dialog)
-        openAction.setShortcut("Ctrl+O")
-        self.menu_file.addAction(openAction)
-        colorMapMenu = self.menu_file.addMenu("Color Map")
+        self.openAction = OpenAction(self)
+        self.openAction.setShortcut("Ctrl+O")
+        self.menu_file.addAction(self.openAction)
+
+        self.menu_view = self.addMenu("&View")
+        colorMapMenu = self.menu_view.addMenu("Color Map")
+
+
+class OpenAction(QAction):
+
+    def __init__(self, parent):
+        QAction.__init__(self,
+                         "Open",
+                         parent,
+                         triggered=self.open_experiment_dialog)
+        self.success = Signal(str, int)
 
     def open_experiment_dialog(self):
         dialog = ChooseExperimentDialog(self)
         if dialog.exec():
-            camera, pulseNumber = dialog.getSelection()
-            print(pulseNumber)
+            self.success.emit(dialog.getSelection())
+            print("file chosen")
 
 
 class ChooseExperimentDialog(QDialog):

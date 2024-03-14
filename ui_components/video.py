@@ -8,6 +8,15 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 import ir
+import testVideo
+import JadeIII
+import IRCam
+import IRCam2
+import Sektor7Unten
+import Sektor7Oben
+import Sektor9Tauchrohr
+import Sektor9Zeile
+import IRLab
 from video_commands import VideoCommands
 
 
@@ -15,13 +24,13 @@ class VideoPanel(QVBoxLayout):
 
     def __init__(self, parent=None):
         QVBoxLayout.__init__(self)
-        # Figure (Left)
+
         self.figure = Figure()
         self.canvas = FigureCanvas(self.figure)
-
         self.figure.set_canvas(self.canvas)
         # self.axes = self.canvas.figure.add_subplot(111)
         self.axes = self.canvas.figure.add_axes([0, 0, 1, 1])
+
         self.image = self.axes.imshow(np.zeros((640, 512)),
                                       cmap='gray',
                                       vmin=0.1,
@@ -30,12 +39,11 @@ class VideoPanel(QVBoxLayout):
             tick.set_visible(False)
         for tick in self.axes.get_yticklabels():
             tick.set_visible(False)
-
-        self.cmap = cm.gray
-        self.image.set_cmap(self.cmap)
         self.axes.set_xlim(0, 511)
         self.axes.set_ylim(0, 511)
         self.axes.set_aspect(1)
+
+        self.cmap = cm.gray
         self.reverseX = 1
         self.reverseY = 1
         self.transpose = False
@@ -50,13 +58,44 @@ class VideoPanel(QVBoxLayout):
         self.commands.updateFrame.connect(self.setFrame)
         self.commands.updateTime.connect(self.setTime)  # Still dont know
 
-    def setVideo(self, video, movement=ir.movement(), name=''):
-        self.video = video
+    def getVideo(camera, experiment_number):
+        videos = {
+            'Jade III': JadeIII.video,
+            'IRCam': IRCam.video,
+            'Test Video': testVideo.video,
+            'IRCam2': IRCam2.video,
+            'Sektor 7 Unten': Sektor7Unten.video,
+            'Sektor 9 Tauchrohr': Sektor9Tauchrohr.video,
+            'Sektor 9 Zeile': Sektor9Zeile.video,
+            'Sektor 7 Oben': Sektor7Oben.video,
+            'IRLab': IRLab.video,
+        }
+        return videos[camera](experiment_number)
+
+    def getMovement(camera, experiment_number):
+        movement = {
+            'Jade III': lambda i: ir.movement(),  #JadeIII.movement,
+            'IRCam': IRCam.movement,
+            'Test Video': lambda i: ir.movement(),
+            'IRCam2': lambda i: ir.movement(),
+            'Sektor 7 Unten': Sektor7Unten.movement,
+            'Sektor 9 Tauchrohr': Sektor9Tauchrohr.movement,
+            'Sektor 9 Zeile': Sektor9Zeile.movement,
+            'Sektor 7 Oben': Sektor7Oben.movement,
+            'IRLab': lambda i: ir.movement()
+        }
+        return movement[camera](experiment_number)
+
+    @Slot()
+    def openVideo(self, camera, experiment_number):
+        self.setVideo(self.getVideo(), self.getMovement(), name=self.getName())
+        self.video = self.getVideo(camera, experiment_number)
+        self.movement = self.getMovement(camera, experiment_number)
+        self.name = camera
+
         self.commands.setRange(0, self.video.header.nFrames - 1)
         self.commands.reset()
-        self.movement = movement
         self.setFrame(0)
-        self.name = name
 
     def setGamma(self, gamma):
         self.cmap.set_gamma(gamma)

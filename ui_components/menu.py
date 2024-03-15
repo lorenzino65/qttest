@@ -1,7 +1,8 @@
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtCore import Slot, Signal
 from PySide6.QtWidgets import (QLabel, QHBoxLayout, QVBoxLayout, QMenuBar,
-                               QLineEdit, QPushButton, QDialog, QComboBox)
+                               QLineEdit, QMenu, QPushButton, QDialog,
+                               QComboBox)
 import testVideo
 import JadeIII
 import IRCam
@@ -19,12 +20,53 @@ class TopBarMenu(QMenuBar):
         QMenuBar.__init__(self, parent)
 
         self.menu_file = self.addMenu("&File")
-        self.openAction = OpenAction(self)
-        self.openAction.setShortcut("Ctrl+O")
-        self.menu_file.addAction(self.openAction)
+        self.menu_file.open_action = OpenAction(self)
+        self.menu_file.open_action.setShortcut("Ctrl+o")
+        self.menu_file.addAction(self.menu_file.open_action)
+        self.menu_file.line_signal = Signal(bool)
+        self.menu_file.line_action = CreateLineAction(
+            self, self.menu_file.line_signal)
+        self.menu_file.line_action.setShortcut("Ctrl+l")
+        self.menu_file.addAction(self.menu_view.line_action)
+        self.menu_file.save_line_action
+        self.menu_file.addAction(self.menu_view.save_line_action)
 
-        self.menu_view = self.addMenu("&View")
-        colorMapMenu = self.menu_view.addMenu("Color Map")
+        self.menu_view = MenuView(self)
+        self.addMenu(self.menu_view)
+
+
+class MenuView(QMenu):
+
+    def __init__(self, parent=None):
+        QMenu.__init__(self, title="&File", parent=parent)
+
+        self.color_map_menu = self.addMenu("Color Map")
+        self.orientation_menu = self.addMenu("Orientation")
+        self.orientation_menu.reverseX_action
+        self.orientation_menu.reverseY_action
+        self.orientation_menu.transpose_action
+        self.orientation_menu.addAction(self.orientation_menu.reverseX_action)
+        self.orientation_menu.addAction(self.orientation_menu.reverseY_action)
+        self.orientation_menu.addAction(self.orientation_menu.transpose_action)
+        self.gamma_action
+        self.addAction(self.gamma_action)
+        self.percentile_action
+        self.addAction(self.percentile_action)
+        self.subtract_background_action
+        self.addAction(self.subtract_background_action)
+
+
+class CreateLineAction(QAction):
+
+    def __init__(self, parent, signal):
+        QAction.__init__(self,
+                         "Create Line",
+                         parent,
+                         triggered=self.start_line_creation)
+        self.clicked = signal
+
+    def start_line_creation(self):
+        self.clicked.emit(True)
 
 
 class OpenAction(QAction):

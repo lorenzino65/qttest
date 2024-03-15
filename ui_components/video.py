@@ -1,5 +1,7 @@
 import numpy as np
-from matplotlib.backends.backend_qtagg import FigureCanvas
+
+import matplotlib
+from matplotlib.backend_bases import FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib import cm
 from PySide6.QtCore import Slot
@@ -18,6 +20,9 @@ import Sektor9Tauchrohr
 import Sektor9Zeile
 import IRLab
 from video_commands import VideoCommands
+from line import Line
+
+matplotlib.use('qtagg')
 
 
 class VideoPanel(QVBoxLayout):
@@ -30,7 +35,6 @@ class VideoPanel(QVBoxLayout):
         self.figure.set_canvas(self.canvas)
         # self.axes = self.canvas.figure.add_subplot(111)
         self.axes = self.canvas.figure.add_axes([0, 0, 1, 1])
-
         self.image = self.axes.imshow(np.zeros((640, 512)),
                                       cmap='gray',
                                       vmin=0.1,
@@ -52,13 +56,17 @@ class VideoPanel(QVBoxLayout):
         self.currentFrame = 0
         self.canvas.draw()
 
+        # Layout
+        # self.addWidget(self.title,)
         self.addWidget(self.canvas, 90)
         self.commands = VideoCommands()
         self.addLayout(self.commands, 7)
+
+        # Signals
         self.commands.updateFrame.connect(self.setFrame)
         self.commands.updateTime.connect(self.setTime)  # Still dont know
 
-    def getVideo(camera, experiment_number):
+    def get_video(camera, experiment_number):
         videos = {
             'Jade III': JadeIII.video,
             'IRCam': IRCam.video,
@@ -72,7 +80,7 @@ class VideoPanel(QVBoxLayout):
         }
         return videos[camera](experiment_number)
 
-    def getMovement(camera, experiment_number):
+    def get_movement(camera, experiment_number):
         movement = {
             'Jade III': lambda i: ir.movement(),  #JadeIII.movement,
             'IRCam': IRCam.movement,
@@ -86,16 +94,27 @@ class VideoPanel(QVBoxLayout):
         }
         return movement[camera](experiment_number)
 
+    def get_movement_now(self):
+        return self.movement(self.video.time[self.currentFrame])
+
     @Slot()
-    def openVideo(self, camera, experiment_number):
-        self.setVideo(self.getVideo(), self.getMovement(), name=self.getName())
-        self.video = self.getVideo(camera, experiment_number)
-        self.movement = self.getMovement(camera, experiment_number)
+    def open_video(self, camera, experiment_number):
+        self.setVideo(self.get_video(),
+                      self.get_movement(),
+                      name=self.getName())
+        self.video = self.get_video(camera, experiment_number)
+        self.movement = self.get_movement(camera, experiment_number)
         self.name = camera
 
         self.commands.setRange(0, self.video.header.nFrames - 1)
         self.commands.reset()
         self.setFrame(0)
+
+    @Slot()
+    def add_line(self):
+        self.remove_line()
+        line, = self.axes.plot([0], [0], 'r')
+        self.line = Line(self, line)
 
     def setGamma(self, gamma):
         self.cmap.set_gamma(gamma)
@@ -153,7 +172,7 @@ class VideoPanel(QVBoxLayout):
                     self.m_currentTime.Value = '%f' % self.video.time[index]
                     try:
                         y, x = self.movement(self.video.time[index])
-                        self.line.move(-x, -y)
+                        self.line.move(-x, -y)  # TO-DO: check if - necessary
                         self.Parent.m_editMenuSaveLineProfile.Enable(
                             self.line.isValid)
                     except Exception:

@@ -24,7 +24,8 @@ class ApplicationWindow(QMainWindow):
         layout.addLayout(self.video_panel)
 
         # Signals
-        self.top_menu.openAction.success.connect(self.video_panel.openVideo)
+        self.top_menu.menu_file.open_action.success.connect(
+            self.video_panel.openVideo)
 
 
 if __name__ == "__main__":

@@ -1,28 +1,20 @@
 import numpy as np
-
-import matplotlib
-from matplotlib.backend_bases import FigureCanvas
+from matplotlib.backends.backend_qtagg import FigureCanvas
 from matplotlib.figure import Figure
-from matplotlib import cm
+import matplotlib.colors as colors
+from matplotlib import colormaps
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import (
     QLabel,
     QVBoxLayout,
 )
 import ir
-import testVideo
-import JadeIII
-import IRCam
-import IRCam2
 import Sektor7Unten
 import Sektor7Oben
 import Sektor9Tauchrohr
 import Sektor9Zeile
-import IRLab
-from video_commands import VideoCommands
-from line import Line
-
-matplotlib.use('qtagg')
+from .video_commands import VideoCommands
+from .line import Line
 
 
 class VideoPanel(QVBoxLayout):
@@ -39,20 +31,23 @@ class VideoPanel(QVBoxLayout):
                                       cmap='gray',
                                       vmin=0.1,
                                       vmax=0.99)
-        for tick in self.axes.get_xticklabels():
-            tick.set_visible(False)
-        for tick in self.axes.get_yticklabels():
-            tick.set_visible(False)
+        # for tick in self.axes.get_xticklabels():
+        #     tick.set_visible(False)
+        # for tick in self.axes.get_yticklabels():
+        #     tick.set_visible(False)
+        self.axes.set_axis_off()
         self.axes.set_xlim(0, 511)
         self.axes.set_ylim(0, 511)
         self.axes.set_aspect(1)
 
-        self.cmap = cm.gray
+        self.cmap = colormaps['gray']
+        self.norm = colors.Normalize()
         self.reverseX = 1
         self.reverseY = 1
         self.transpose = False
         self.removeBackground = False
 
+        self.is_video_loaded = False
         self.currentFrame = 0
         self.canvas.draw()
 
@@ -63,34 +58,24 @@ class VideoPanel(QVBoxLayout):
         self.addLayout(self.commands, 7)
 
         # Signals
-        self.commands.updateFrame.connect(self.setFrame)
-        self.commands.updateTime.connect(self.setTime)  # Still dont know
+        self.commands.updateFrame.connect(self.set_frame)
+        self.commands.updateTime.connect(self.set_time)  # Still dont know
 
     def get_video(camera, experiment_number):
         videos = {
-            'Jade III': JadeIII.video,
-            'IRCam': IRCam.video,
-            'Test Video': testVideo.video,
-            'IRCam2': IRCam2.video,
             'Sektor 7 Unten': Sektor7Unten.video,
             'Sektor 9 Tauchrohr': Sektor9Tauchrohr.video,
             'Sektor 9 Zeile': Sektor9Zeile.video,
             'Sektor 7 Oben': Sektor7Oben.video,
-            'IRLab': IRLab.video,
         }
         return videos[camera](experiment_number)
 
     def get_movement(camera, experiment_number):
         movement = {
-            'Jade III': lambda i: ir.movement(),  #JadeIII.movement,
-            'IRCam': IRCam.movement,
-            'Test Video': lambda i: ir.movement(),
-            'IRCam2': lambda i: ir.movement(),
             'Sektor 7 Unten': Sektor7Unten.movement,
             'Sektor 9 Tauchrohr': Sektor9Tauchrohr.movement,
             'Sektor 9 Zeile': Sektor9Zeile.movement,
             'Sektor 7 Oben': Sektor7Oben.movement,
-            'IRLab': lambda i: ir.movement()
         }
         return movement[camera](experiment_number)
 
@@ -99,52 +84,86 @@ class VideoPanel(QVBoxLayout):
 
     @Slot()
     def open_video(self, camera, experiment_number):
-        self.setVideo(self.get_video(),
-                      self.get_movement(),
-                      name=self.getName())
         self.video = self.get_video(camera, experiment_number)
         self.movement = self.get_movement(camera, experiment_number)
         self.name = camera
+        self.is_video_loaded = True
 
-        self.commands.setRange(0, self.video.header.nFrames - 1)
+        self.image.set_norm(self.norm)
+        self.image.set_cmap(self.cmap)
+        self.commands.set_range(0, self.video.header.nFrames - 1)
         self.commands.reset()
-        self.setFrame(0)
+        self.set_frame(0)
 
-    @Slot()
+    def remove_line(self):
+        try:
+            del self.line
+        except Exception as Error:
+            print(Error)
+
     def add_line(self):
         self.remove_line()
         line, = self.axes.plot([0], [0], 'r')
         self.line = Line(self, line)
+
+    @Slot()
+    def line_control(self, reason):
+        match reason:
+            case "Create":
+                self.add_line()
+            case "Save":
+                if not self.line or not self.line.isValid:
+                    raise Exception('Line not valid')
+                self.line.save_line()
+            case _:
+                print("Something broke")
+
+    def get_gamma(self):
+        return float(self.cmap._gamma)
+
+    @Slot()
+    def set_norm(self, norm_type, gamma):
+        match norm_type:
+            case "Linear":
+                self.norm = colors.Normalize()
+            case "Log":
+                self.norm = colors.LogNorm()
+            case "Power":
+                self.norm = colors.PowerNorm(gamma=gamma)
+            case _:
+                print("Something broke with norms")
+
+        if self.is_video_loaded:
+            self.image.set_norm(self.norm)
+            self.canvas.draw()
+
+    @Slot()
+    def set_color_map(self, _, color):
+        self.cmap = colormaps[color]
+        if self.is_video_loaded:
+            self.image.set_cmap(self.cmap)
+            self.canvas.draw()
 
     def setGamma(self, gamma):
         self.cmap.set_gamma(gamma)
         self.image.autoscale()
         self.canvas.draw()
 
-    def getGamma(self):
-        return float(self.cmap._gamma)
-
     def setRemoveBackground(self, state):
         self.removeBackground = state
-        self.setFrame(self.currentFrame)
-
-    def setColorMap(self, cmap):
-        cmap.set_gamma(self.getGamma())
-        self.cmap = cmap
-        self.image.set_cmap(self.cmap)
-        self.canvas.draw()
+        self.set_frame(self.currentFrame)
 
     @Slot()
-    def setTime(self, time):
+    def set_time(self, time):
         index = np.abs(self.video.time - time).argmin()
-        self.setFrame(index)
+        self.set_frame(index)
 
     @Slot()
-    def setFrame(self, index):
+    def set_frame(self, index):
         if index != self.currentFrame:
             try:
                 if index >= 0 and index < self.video.header.nFrames:
-                    self.commands.setAll(index)
+                    self.commands.set_all(index, self.video.time[index])
                     if self.removeBackground:
                         temp = self.video[index] - self.video[0]
                     else:
@@ -167,9 +186,10 @@ class VideoPanel(QVBoxLayout):
                     #     self.image.set_clim(vmin, vmax)
                     # except Exception as Error:
                     #     print(Error)
-                    self.image.autoscale()
+                    #     self.image.autoscale()
+                    self.image.set(clim=(temp.min(),
+                                         temp.max()))  # till histogram
                     self.currentFrame = index
-                    self.m_currentTime.Value = '%f' % self.video.time[index]
                     try:
                         y, x = self.movement(self.video.time[index])
                         self.line.move(-x, -y)  # TO-DO: check if - necessary
@@ -185,10 +205,3 @@ class VideoPanel(QVBoxLayout):
         self.autoScale = value
         if self.autoScale:
             self.image.autoscale()
-
-    def OnScroll(self, event):
-        self.setFrame(self.slider.GetValue())
-
-    def set_cmap(self, cmap):
-        self.image.set_cmap(cmap)
-        self.canvas.draw()

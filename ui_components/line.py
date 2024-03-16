@@ -30,6 +30,11 @@ class Line(object):
     def move(self, x, y):
         self.line.set_data(self.xs + x, self.ys + y)
 
+    def save_line(self):
+        print((self.parent.name))
+        print(("Start %5.3f %5.3f" % (self.line.xs[0], self.line.ys[0])))
+        print(("End %5.3f %5.3f" % (self.line.xs[1], self.line.ys[1])))
+
     @property
     def isValid(self):
         return len(self.xs) == 2 and len(self.ys) == 2

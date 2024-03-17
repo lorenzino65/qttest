@@ -1,6 +1,6 @@
 import sys
 
-from PySide6 import Slot
+from PySide6.QtCore import Slot
 from PySide6.QtWidgets import (QApplication, QWidget, QHBoxLayout, QMenuBar,
                                QMainWindow)
 from ui_components.video import VideoPanel

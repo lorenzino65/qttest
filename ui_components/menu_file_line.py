@@ -62,7 +62,7 @@ class ChooseExperimentDialog(QDialog):
         super().__init__(parent)
 
         self.setWindowTitle("Choose Experiment")
-        self.layout = QVBoxLayout()
+        layout = QVBoxLayout()
 
         self.combo_camera = QComboBox()
         self.cameras = {
@@ -73,7 +73,7 @@ class ChooseExperimentDialog(QDialog):
         }
         self.combo_camera.addItems(self.cameras.keys())
         self.combo_camera.currentTextChanged.connect(self.on_camera_select)
-        self.layout.addWidget(self.combo_camera)
+        layout.addWidget(self.combo_camera)
 
         self.number_layout = QHBoxLayout()
         self.number_layout.addWidget(QLabel("Enter the number:"))
@@ -81,13 +81,13 @@ class ChooseExperimentDialog(QDialog):
         self.combo_experiment.setLineEdit(QLineEdit())
         self.number_layout.addWidget(self.combo_experiment)
 
-        self.layout.addLayout(self.number_layout)
+        layout.addLayout(self.number_layout)
 
         self.button_ok = QPushButton("OK")
         self.button_ok.clicked.connect(self.accept)
-        self.layout.addWidget(self.button_ok)
+        layout.addWidget(self.button_ok)
 
-        self.setLayout(self.layout)
+        self.setLayout(layout)
 
     @Slot()
     def on_camera_select(self, camera):

@@ -41,14 +41,16 @@ class VideoPanel(QVBoxLayout):
         self.axes.set_aspect(1)
 
         self.cmap = colormaps['gray']
+        self.vmin = 0.1
+        self.vmax = 0.99
         self.norm = colors.Normalize()
         self.reverseX = 1
         self.reverseY = 1
         self.transpose = False
-        self.removeBackground = False
+        self.remove_background = False
 
         self.is_video_loaded = False
-        self.currentFrame = 0
+        self.current_frame = 0
         self.canvas.draw()
 
         # Layout
@@ -80,7 +82,7 @@ class VideoPanel(QVBoxLayout):
         return movement[camera](experiment_number)
 
     def get_movement_now(self):
-        return self.movement(self.video.time[self.currentFrame])
+        return self.movement(self.video.time[self.current_frame])
 
     @Slot()
     def open_video(self, camera, experiment_number):
@@ -118,9 +120,6 @@ class VideoPanel(QVBoxLayout):
             case _:
                 print("Something broke")
 
-    def get_gamma(self):
-        return float(self.cmap._gamma)
-
     @Slot()
     def set_norm(self, norm_type, gamma):
         match norm_type:
@@ -144,14 +143,45 @@ class VideoPanel(QVBoxLayout):
             self.image.set_cmap(self.cmap)
             self.canvas.draw()
 
-    def setGamma(self, gamma):
-        self.cmap.set_gamma(gamma)
-        self.image.autoscale()
-        self.canvas.draw()
+    @Slot()
+    def set_reverseX(self, checked):
+        if checked:
+            self.reverseX = -1
+        else:
+            self.reverseX = 1
+        if self.is_video_loaded:
+            self.set_frame(self.current_frame)
 
-    def setRemoveBackground(self, state):
-        self.removeBackground = state
-        self.set_frame(self.currentFrame)
+    @Slot()
+    def set_reverseY(self, checked):
+        if checked:
+            self.reverseY = -1
+        else:
+            self.reverseY = 1
+        if self.is_video_loaded:
+            self.set_frame(self.current_frame)
+
+    @Slot()
+    def set_transpose(self, checked):
+        self.transpose = checked
+        if self.is_video_loaded:
+            self.set_frame(self.current_frame)
+
+    def get_percentile_vmin_vmax(self):
+        return self.vmin, self.vmax
+
+    @Slot()
+    def set_percentile_vmin_vmax(self, vmin, vmax):
+        self.vmax = vmax
+        self.vmin = vmin
+        if self.is_video_loaded:
+            self.set_frame(self.current_frame)
+
+    @Slot()
+    def set_remove_background(self, checked):
+        self.remove_background = checked
+        if self.is_video_loaded:
+            self.set_frame(self.current_frame)
 
     @Slot()
     def set_time(self, time):
@@ -160,11 +190,11 @@ class VideoPanel(QVBoxLayout):
 
     @Slot()
     def set_frame(self, index):
-        if index != self.currentFrame:
+        if index != self.current_frame:
             try:
                 if index >= 0 and index < self.video.header.nFrames:
                     self.commands.set_all(index, self.video.time[index])
-                    if self.removeBackground:
+                    if self.remove_background:
                         temp = self.video[index] - self.video[0]
                     else:
                         temp = self.video[index]
@@ -187,9 +217,11 @@ class VideoPanel(QVBoxLayout):
                     # except Exception as Error:
                     #     print(Error)
                     #     self.image.autoscale()
-                    self.image.set(clim=(temp.min(),
-                                         temp.max()))  # till histogram
-                    self.currentFrame = index
+                    self.vmin = temp.min()
+                    self.vmax = temp.max()
+                    self.image.set(clim=(self.vmin,
+                                         self.vmax))  # till histogram
+                    self.current_frame = index
                     try:
                         y, x = self.movement(self.video.time[index])
                         self.line.move(-x, -y)  # TO-DO: check if - necessary
@@ -200,8 +232,3 @@ class VideoPanel(QVBoxLayout):
                     self.canvas.draw()
             except Exception as Error:
                 print(Error)
-
-    def setAutoScale(self, value):
-        self.autoScale = value
-        if self.autoScale:
-            self.image.autoscale()
